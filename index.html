@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MC Frend - Minecraft Sunucu Yönetim Paneli</title>
+    <meta name="description" content="MC Frend ile ücretsiz Minecraft sunucunu yönet, 26.3 ve tüm sürümleri seç, Modrinth canlı API ile binlerce modu anında yükle!">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { background-color: #0e1117; color: #e6edf3; display: flex; min-height: 100vh; overflow-x: hidden; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0e1117; }
+        ::-webkit-scrollbar-thumb { background: #21262d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #30363d; }
+
+        /* Custom Input & Select styling */
+        select, input[type="text"], input[type="number"] {
+            background-color: #0d1117;
+            border: 1px solid #30363d;
+            color: #f0f6fc;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        select:focus, input[type="text"]:focus, input[type="number"]:focus {
+            border-color: #2ecc71;
+            box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.15);
+        }
+
+        /* Active Navigation Tab */
+        .nav-btn.active {
+            background: #21262d;
+            color: #2ecc71;
+            border-left: 3px solid #2ecc71;
+        }
+
+        /* Software Card Active */
+        .software-card.selected {
+            border-color: #2ecc71 !important;
+            background: rgba(46, 204, 113, 0.08) !important;
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-[#0e1117] text-[#e6edf3] flex min-h-screen">
+
+    <!-- Sol Menü (Sidebar) -->
+    <aside class="w-64 bg-[#161b22] border-r border-[#30363d] p-4 flex flex-col gap-2 shrink-0 select-none">
+        <div class="flex items-center justify-center gap-2 mb-6 pt-2">
+            <span class="text-3xl">🟩</span>
+            <h1 class="text-2xl font-black tracking-wider text-[#2ecc71]">MC FREND</h1>
+        </div>
+
+        <nav class="flex flex-col gap-1">
+            <button class="nav-btn active flex items-center gap-3 w-full p-3 text-left text-sm font-semibold text-[#8b949e] rounded-lg hover:bg-[#21262d] hover:text-[#2ecc71] transition" onclick="showTab('server', this)">
+                <span>🖥️</span> Sunucu
+            </button>
+            <button class="nav-btn flex items-center gap-3 w-full p-3 text-left text-sm font-semibold text-[#8b949e] rounded-lg hover:bg-[#21262d] hover:text-[#2ecc71] transition" onclick="showTab('software', this)">
+                <span>⚙️</span> Yazılım & Sürümler
+            </button>
+            <button class="nav-btn flex items-center gap-3 w-full p-3 text-left text-sm font-semibold text-[#8b949e] rounded-lg hover:bg-[#21262d] hover:text-[#2ecc71] transition" onclick="showTab('mods', this)">
+                <span>📦</span> Modrinth Mağazası
+            </button>
+            <button class="nav-btn flex items-center gap-3 w-full p-3 text-left text-sm font-semibold text-[#8b949e] rounded-lg hover:bg-[#21262d] hover:text-[#2ecc71] transition" onclick="showTab('files', this)">
+                <span>📁</span> Dosyalar
+            </button>
+            <button class="nav-btn flex items-center gap-3 w-full p-3 text-left text-sm font-semibold text-[#8b949e] rounded-lg hover:bg-[#21262d] hover:text-[#2ecc71] transition" onclick="showTab('worlds', this)">
+                <span>🌍</span> Dünyalar
+            </button>
+            <button class="nav-btn flex items-center gap-3 w-full p-3 text-left text-sm font-semibold text-[#8b949e] rounded-lg hover:bg-[#21262d] hover:text-[#2ecc71] transition" onclick="showTab('resourcepacks', this)">
+                <span>🎨</span> Kaynak Paketleri
+            </button>
+            <button class="nav-btn flex items-center gap-3 w-full p-3 text-left text-sm font-semibold text-[#8b949e] rounded-lg hover:bg-[#21262d] hover:text-[#2ecc71] transition" onclick="showTab('options', this)">
+                <span>🔧</span> MC Frend Ayarları
+            </button>
+        </nav>
+
+        <!-- Dynamic Server Quick Info Footer -->
+        <div class="mt-auto bg-[#0d1117] border border-[#30363d] p-3 rounded-lg flex flex-col gap-1 text-xs">
+            <div class="flex justify-between text-[#8b949e]">
+                <span>Durum:</span>
+                <span id="sidebarStatus" class="font-bold text-red-400">Kapalı</span>
+            </div>
+            <div class="flex justify-between text-[#8b949e]">
+                <span>Sürüm:</span>
+                <span id="sidebarVersion" class="font-bold text-[#2ecc71]">1.21.4</span>
+            </div>
+            <div class="flex justify-between text-[#8b949e]">
+                <span>Yazılım:</span>
+                <span id="sidebarSoftware" class="font-bold text-[#2ecc71]">Paper</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Ana İçerik Alanı -->
+    <main class="flex-1 p-8 overflow-y-auto max-w-7xl mx-auto">
+
+        <!-- Notification Toast Banner -->
+        <div id="toast" class="hidden fixed top-5 right-5 bg-[#2ecc71] text-black font-bold px-5 py-3 rounded-lg shadow-xl z-50 flex items-center gap-2 border border-green-400">
+            <span id="toastMsg">İşlem başarılı!</span>
+        </div>
+
+        <!-- 1. TAB: SUNUCU ANA EKRANI -->
+        <div id="server" class="tab-content block space-y-6">
+            <div class="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
+                <h3 class="text-[#2ecc71] text-lg font-bold pb-3 border-b border-[#21262d] mb-4 flex items-center gap-2">
+                    <span>🌐</span> Sunucu Bağlantı Adresi (IP)
+                </h3>
+                <div class="flex flex-col sm:flex-row gap-3 items-center">
+                    <div class="flex-1 w-full bg-[#0d1117] border border-[#30363d] px-4 py-3 rounded-lg flex items-center font-mono text-lg">
+                        <span class="text-[#2ecc71] font-bold">oyna.</span>
+                        <input type="text" id="subdomain" value="mcfrend" oninput="updateIp()" class="bg-transparent border-none text-white outline-none w-full px-1 font-mono">
+                        <span class="text-[#8b949e]">.com</span>
+                    </div>
+                    <button onclick="copyIp()" class="w-full sm:w-auto bg-[#2ecc71] hover:bg-[#27ae60] text-black font-bold px-6 py-3 rounded-lg transition shrink-0 flex items-center justify-center gap-2">
+                        <span>📋</span> IP Kopyala
+                    </button>
+                </div>
+                <p class="text-xs text-[#8b949e] mt-3">Aktif Oyuncu Bağlantı Adresi: <b id="fullIp" class="text-[#2ecc71]">oyna.mcfrend.com</b></p>
+            </div>
+
+            <div class="bg-[#161b22] border border-[#30363d] rounded-xl p-10 text-center flex flex-col items-center justify-center space-y-4">
+                <div id="statusBadge" class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold bg-red-500/10 text-red-400 border border-red-500/20">
+                    <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+                    <span id="statusText">Sunucu Kapalı</span>
+                </div>
+                <button id="startBtn" onclick="toggleServer()" class="bg-[#2ecc71] hover:bg-[#27ae60] text-black font-black text-xl px-12 py-4 rounded-xl shadow-lg transition transform active:scale-95 flex items-center gap-3">
+                    <span>▶</span> BAŞLAT
+                </button>
+            </div>
+        </div>
+
+        <!-- 2. TAB: YAZILIM & SÜRÜMLER -->
+        <div id="software" class="tab-content hidden space-y-6">
+            <div class="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
+                <h3 class="text-[#2ecc71] text-lg font-bold pb-3 border-b border-[#21262d] mb-4">
+                    1. Sunucu Yazılımı Seç (Bağımsız Altyapılar)
+                </h3>
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <div class="software-card selected bg-[#0d1117] border border-[#30363d] p-4 rounded-xl text-center cursor-pointer transition hover:border-[#2ecc71]" onclick="selectSW('Paper', 'modded', this)">
+                        <h4 class="text-[#2ecc71] font-bold text-base">Paper</h4>
+                        <p class="text-xs text-[#8b949e] mt-1">Performanslı & Eklentiler</p>
+                    </div>
+                    <div class="software-card bg-[#0d1117] border border-[#30363d] p-4 rounded-xl text-center cursor-pointer transition hover:border-[#2ecc71]" onclick="selectSW('Spigot', 'modded', this)">
+                        <h4 class="text-[#2ecc71] font-bold text-base">Spigot</h4>
+                        <p class="text-xs text-[#8b949e] mt-1">Klasik Plugin Desteği</p>
+                    </div>
+                    <div class="software-card bg-[#0d1117] border border-[#30363d] p-4 rounded-xl text-center cursor-pointer transition hover:border-[#2ecc71]" onclick="selectSW('Purpur', 'modded', this)">
+                        <h4 class="text-[#2ecc71] font-bold text-base">Purpur</h4>
+                        <p class="text-xs text-[#8b949e] mt-1">Gelişmiş Yapılandırma</p>
+                    </div>
+                    <div class="software-card bg-[#0d1117] border border-[#30363d] p-4 rounded-xl text-center cursor-pointer transition hover:border-[#2ecc71]" onclick="selectSW('Fabric', 'modded', this)">
+                        <h4 class="text-[#2ecc71] font-bold text-base">Fabric</h4>
+                        <p class="text-xs text-[#8b949e] mt-1">Hafif & Modern Modlar</p>
+                    </div>
+                    <div class="software-card bg-[#0d1117] border border-[#30363d] p-4 rounded-xl text-center cursor-pointer transition hover:border-[#2ecc71]" onclick="selectSW('Forge', 'modded', this)">
+                        <h4 class="text-[#2ecc71] font-bold text-base">Forge</h4>
+                        <p class="text-xs text-[#8b949e] mt-1">Klasik Büyük Modlar</p>
+                    </div>
+                    <div class="software-card bg-[#0d1117] border border-[#30363d] p-4 rounded-xl text-center cursor-pointer transition hover:border-[#2ecc71]" onclick="selectSW('NeoForge', 'modded', this)">
+                        <h4 class="text-[#2ecc71] font-bold text-base">NeoForge</h4>
+                        <p class="text-xs text-[#8b949e] mt-1">Yeni Nesil Modlama</p>
+                    </div>
+                    <div class="software-card bg-[#0d1117] border border-[#30363d] p-4 rounded-xl text-center cursor-pointer transition hover:border-[#2ecc71]" onclick="selectSW('Mohist', 'modded', this)">
+                        <h4 class="text-[#2ecc71] font-bold text-base">Mohist</h4>
+                        <p class="text-xs text-[#8b949e] mt-1">Forge + Plugin Hibrit</p>
+                    </div>
+                    <div class="software-card bg-[#0d1117] border border-[#30363d] p-4 rounded-xl text-center cursor-pointer transition hover:border-[#2ecc71]" onclick="selectSW('Sponge', 'modded', this)">
+                        <h4 class="text-[#2ecc71] font-bold text-base">Sponge</h4>
+                        <p class="text-xs text-[#8b949e] mt-1">Gelişmiş Mod Sunucusu</p>
+                    </div>
+                    <div class="software-card bg-[#0d1117] border border-[#30363d] p-4 rounded-xl text-center cursor-pointer transition hover:border-[#2ecc71]" onclick="selectSW('Vanilla', 'vanilla', this)">
+                        <h4 class="text-[#2ecc71] font-bold text-base">Vanilla</h4>
+                        <p class="text-xs text-[#8b949e] mt-1">Saf Orijinal Minecraft</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
+                <h3 class="text-[#2ecc71] text-lg font-bold pb-3 border-b border-[#21262d] mb-2">
+                    2. Minecraft Sürümü Seç (Eksiksiz Tüm Sürümler)
+                </h3>
+                <p class="text-xs text-[#8b949e] mb-4">Seçtiğin altyapı: <b id="selectedSwDisplay" class="text-[#2ecc71]">Paper</b></p>
+                
+                <!-- Complete Version Dropdown from 26.3 down to 1.0 -->
+                <select id="versionDropdown" onchange="onVersionChange(this.value)" class="w-full p-3 rounded-lg font-semibold text-base cursor-pointer">
+                    <option value="26.3">26.3</option>
+                    <option value="26.2">26.2</option>
+                    <option value="26.1.2">26.1.2</option>
+                    <option value="26.1.1">26.1.1</option>
+                    <option value="26.1">26.1</option>
+                    <option value="1.21.11">1.21.11</option>
+                    <option value="1.21.10">1.21.10</option>
+                    <option value="1.21.9">1.21.9</option>
+                    <option value="1.21.8">1.21.8</option>
+                    <option value="1.21.7">1.21.7</option>
+                    <option value="1.21.6">1.21.6</option>
+                    <option value="1.21.5">1.21.5</option>
+                    <option value="1.21.4" selected>1.21.4</option>
+                    <option value="1.21.3">1.21.3</option>
+                    <option value="1.21.2">1.21.2</option>
+                    <option value="1.21.1">1.21.1</option>
+                    <option value="1.21">1.21</option>
+                    <option value="1.20.6">1.20.6</option>
+                    <option value="1.20.5">1.20.5</option>
+                    <option value="1.20.4">1.20.4</option>
+                    <option value="1.20.3">1.20.3</option>
+                    <option value="1.20.2">1.20.2</option>
+                    <option value="1.20.1">1.20.1</option>
+                    <option value="1.20">1.20</option>
+                    <option value="1.19.4">1.19.4</option>
+                    <option value="1.19.3">1.19.3</option>
+                    <option value="1.19.2">1.19.2</option>
+                    <option value="1.19.1">1.19.1</option>
+                    <option value="1.19">1.19</option>
+                    <option value="1.18.2">1.18.2</option>
+                    <option value="1.18.1">1.18.1</option>
+                    <option value="1.18">1.18</option>
+                    <option value="1.17.1">1.17.1</option>
+                    <option value="1.17">1.17</option>
+                    <option value="1.16.5">1.16.5</option>
+                    <option value="1.16.4">1.16.4</option>
+                    <option value="1.16.3">1.16.3</option>
+                    <option value="1.16.2">1.16.2</option>
+                    <option value="1.16.1">1.16.1</option>
+                    <option value="1.16">1.16</option>
+                    <option value="1.15.2">1.15.2</option>
+                    <option value="1.15.1">1.15.1</option>
+                    <option value="1.15">1.15</option>
+                    <option value="1.14.4">1.14.4</option>
+                    <option value="1.14.3">1.14.3</option>
+                    <option value="1.14.2">1.14.2</option>
+                    <option value="1.14.1">1.14.1</option>
+                    <option value="1.14">1.14</option>
+                    <option value="1.13.2">1.13.2</option>
+                    <option value="1.13.1">1.13.1</option>
+                    <option value="1.13">1.13</option>
+                    <option value="1.12.2">1.12.2</option>
+                    <option value="1.12.1">1.12.1</option>
+                    <option value="1.12">1.12</option>
+                    <option value="1.11.2">1.11.2</option>
+                    <option value="1.11.1">1.11.1</option>
+                    <option value="1.11">1.11</option>
+                    <option value="1.10.2">1.10.2</option>
+                    <option value="1.10.1">1.10.1</option>
+                    <option value="1.10">1.10</option>
+                    <option value="1.9.4">1.9.4</option>
+                    <option value="1.9.3">1.9.3</option>
+                    <option value="1.9.2">1.9.2</option>
+                    <option value="1.9.1">1.9.1</option>
+                    <option value="1.9">1.9</option>
+                    <option value="1.8.9">1.8.9</option>
+                    <option value="1.8.8">1.8.8</option>
+                    <option value="1.8.7">1.8.7</option>
+                    <option value="1.8.6">1.8.6</option>
+                    <option value="1.8.5">1.8.5</option>
+                    <option value="1.8.4">1.8.4</option>
+                    <option value="1.8.3">1.8.3</option>
+                    <option value="1.8.2">1.8.2</option>
+                    <option value="1.8.1">1.8.1</option>
+                    <option value="1.8">1.8</option>
+                    <option value="1.7.10">1.7.10</option>
+                    <option value="1.7.9">1.7.9</option>
+                    <option value="1.7.8">1.7.8</option>
+                    <option value="1.7.7">1.7.7</option>
+                    <option value="1.7.6">1.7.6</option>
+                    <option value="1.7.5">1.7.5</option>
+                    <option value="1.7.4">1.7.4</option>
+                    <option value="1.7.3">1.7.3</option>
+                    <option value="1.7.2">1.7.2</option>
+                    <option value="1.6.4">1.6.4</option>
+                    <option value="1.6.2">1.6.2</option>
+                    <option value="1.6.1">1.6.1</option>
+                    <option value="1.5.2">1.5.2</option>
+                    <option value="1.5.1">1.5.1</option>
+                    <option value="1.4.7">1.4.7</option>
+                    <option value="1.4.6">1.4.6</option>
+                    <option value="1.4.5">1.4.5</option>
+                    <option value="1.4.4">1.4.4</option>
+                    <option value="1.4.2">1.4.2</option>
+                    <option value="1.3.2">1.3.2</option>
+                    <option value="1.3.1">1.3.1</option>
+                    <option value="1.2.5">1.2.5</option>
+                    <option value="1.2.4">1.2.4</option>
+                    <option value="1.2.3">1.2.3</option>
+                    <option value="1.2.2">1.2.2</option>
+                    <option value="1.2.1">1.2.1</option>
+                    <option value="1.1">1.1</option>
+                    <option value="1.0">1.0</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 3. TAB: REAL MODRINTH LIVE API SEARCH -->
+        <div id="mods" class="tab-content hidden space-y-6">
+            <div class="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-[#21262d] mb-4">
+                    <div>
+                        <h3 class="text-[#2ecc71] text-lg font-bold flex items-center gap-2">
+                            <span>📦</span> Live Modrinth API v2
+                        </h3>
+                        <p class="text-xs text-[#8b949e]">Modrinth üzerindeki binlerce güncel mod, eklenti ve veri paketinde canlı arama yapın.</p>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-xs text-[#8b949e]">Filtreler:</span>
+                        <select id="modProjectType" onchange="searchModrinth()" class="text-xs px-3 py-1.5 rounded-md font-semibold">
+                            <option value="mod">Modlar</option>
+                            <option value="plugin">Eklentiler (Plugins)</option>
+                            <option value="datapack">Veri Paketleri (Datapacks)</option>
+                        </select>
+                        <span id="activeVersionFilterBadge" class="text-xs bg-[#21262d] text-[#2ecc71] px-2.5 py-1.5 rounded-md font-mono border border-[#30363d]">
+                            Sürüm: 1.21.4
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Real Search Box -->
+                <div class="relative mb-6">
+                    <input type="text" id="modSearchInput" placeholder="Modrinth'te canlı ara (ör. Voice Chat, Sodium, WorldGuard, JourneyMap)..." oninput="debounceSearch()" class="w-full px-4 py-3 pl-11 rounded-lg text-sm">
+                    <span class="absolute left-3.5 top-3.5 text-[#8b949e] text-base">🔍</span>
+                </div>
+
+                <!-- Search Results Grid / List -->
+                <div id="modrinthResults" class="space-y-3">
+                    <!-- Live Dynamic Content Loaded Here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. TAB: DOSYALAR -->
+        <div id="files" class="tab-content hidden space-y-6">
+            <div class="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
+                <div class="flex justify-between items-center mb-4 pb-3 border-b border-[#21262d]">
+                    <h3 class="text-[#2ecc71] text-lg font-bold">MC Frend Dosya Yöneticisi</h3>
+                    <button onclick="showToast('Dosya yüklendi!')" class="bg-[#21262d] hover:bg-[#30363d] text-[#2ecc71] text-xs font-bold px-3 py-2 rounded-md border border-[#30363d]">
+                        + Yükle (.jar / .zip)
+                    </button>
+                </div>
+                <div class="space-y-2 font-mono text-sm">
+                    <div class="bg-[#0d1117] border border-[#30363d] p-3 rounded-lg flex justify-between items-center hover:border-[#8b949e] transition cursor-pointer">
+                        <span class="flex items-center gap-2">📁 <b>mods/</b></span>
+                        <span class="text-xs text-[#8b949e]">Klasör</span>
+                    </div>
+                    <div class="bg-[#0d1117] border border-[#30363d] p-3 rounded-lg flex justify-between items-center hover:border-[#8b949e] transition cursor-pointer">
+                        <span class="flex items-center gap-2">📁 <b>plugins/</b></span>
+                        <span class="text-xs text-[#8b949e]">Klasör</span>
+                    </div>
+                    <div class="bg-[#0d1117] border border-[#30363d] p-3 rounded-lg flex justify-between items-center hover:border-[#8b949e] transition cursor-pointer">
+                        <span class="flex items-center gap-2">📁 <b>world/</b></span>
+                        <span class="text-xs text-[#8b949e]">Klasör</span>
+                    </div>
+                    <div id="installedFilesList">
+                        <!-- Dynamic downloaded files append here -->
+                    </div>
+                    <div class="bg-[#0d1117] border border-[#30363d] p-3 rounded-lg flex justify-between items-center hover:border-[#8b949e] transition">
+                        <span class="flex items-center gap-2">📄 server.properties</span>
+                        <button onclick="showTab('options', document.querySelectorAll('.nav-btn')[6])" class="text-xs text-[#2ecc71] hover:underline font-bold">
+                            Ayarla
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. TAB: DÜNYALAR -->
+        <div id="worlds" class="tab-content hidden space-y-6">
+            <div class="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
+                <h3 class="text-[#2ecc71] text-lg font-bold mb-4 pb-2 border-b border-[#21262d]">Dünya Yönetimi</h3>
+                <div class="flex gap-2 mb-6">
+                    <input type="text" id="worldNameInput" placeholder="Dünya adı (ör. survival_world)" class="flex-1 p-2.5 rounded-lg text-sm">
+                    <button onclick="showToast('Yeni dünya oluşturuldu!')" class="bg-[#2ecc71] hover:bg-[#27ae60] text-black font-bold px-5 py-2.5 rounded-lg text-sm transition">
+                        Oluştur
+                    </button>
+                </div>
+                <div class="space-y-2">
+                    <div class="bg-[#0d1117] border border-[#30363d] p-3 rounded-lg flex justify-between items-center">
+                        <span class="font-bold flex items-center gap-2">🌍 world <span class="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded">Ana Dünya</span></span>
+                        <button onclick="showToast('Dünya sıfırlandı!')" class="bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs px-3 py-1.5 rounded-md font-bold">Sıfırla</button>
+                    </div>
+                    <div class="bg-[#0d1117] border border-[#30363d] p-3 rounded-lg flex justify-between items-center">
+                        <span class="font-bold flex items-center gap-2">🔥 world_nether <span class="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded">Nether</span></span>
+                        <button onclick="showToast('Nether sıfırlandı!')" class="bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs px-3 py-1.5 rounded-md font-bold">Sıfırla</button>
+                    </div>
+                    <div class="bg-[#0d1117] border border-[#30363d] p-3 rounded-lg flex justify-between items-center">
+                        <span class="font-bold flex items-center gap-2">👁️ world_the_end <span class="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded">End</span></span>
+                        <button onclick="showToast('End sıfırlandı!')" class="bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs px-3 py-1.5 rounded-md font-bold">Sıfırla</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. TAB: KAYNAK PAKETLERİ -->
+        <div id="resourcepacks" class="tab-content hidden space-y-6">
+            <div class="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
+                <h3 class="text-[#2ecc71] text-lg font-bold mb-3 pb-2 border-b border-[#21262d]">Kaynak Paketleri (Resource Pack)</h3>
+                <p class="text-xs text-[#8b949e] mb-4">Sunucuya katılan oyuncuların otomatik indirmesi için doku paketi bağlantısı ekleyin.</p>
+                <label class="block text-xs font-semibold mb-2">Dokusal Paket İndirme Bağlantısı (.zip):</label>
+                <input type="text" placeholder="https://mcfrend.com/packs/resourcepack.zip" class="w-full p-3 rounded-lg text-sm mb-4">
+                <button onclick="showToast('Kaynak paketi kaydedildi!')" class="bg-[#2ecc71] hover:bg-[#27ae60] text-black font-bold px-6 py-2.5 rounded-lg transition text-sm">
+                    Kaydet ve Uygula
+                </button>
+            </div>
+        </div>
+
+        <!-- 7. TAB: MC FREND AYARLARI -->
+        <div id="options" class="tab-content hidden space-y-6">
+            <div class="bg-[#161b22] border border-[#30363d] rounded-xl p-6">
+                <h3 class="text-[#2ecc71] text-lg font-bold mb-4 pb-2 border-b border-[#21262d]">
+                    MC Frend Ayarları (server.properties)
+                </h3>
+                
+                <div class="space-y-3 divide-y divide-[#21262d]">
+                    <div class="flex justify-between items-center pt-3">
+                        <div>
+                            <span class="font-semibold text-sm block">Korsan Oyuncular (Cracked)</span>
+                            <span class="text-xs text-[#8b949e]">Orijinal olmayan Minecraft istemcileri katılabilsin.</span>
+                        </div>
+                        <input type="checkbox" checked class="w-5 h-5 accent-[#2ecc71] cursor-pointer">
+                    </div>
+
+                    <div class="flex justify-between items-center pt-3">
+                        <div>
+                            <span class="font-semibold text-sm block">PvP (Oyuncu Savaşı)</span>
+                            <span class="text-xs text-[#8b949e]">Oyuncular birbirine hasar verebilsin.</span>
+                        </div>
+                        <input type="checkbox" checked class="w-5 h-5 accent-[#2ecc71] cursor-pointer">
+                    </div>
+
+                    <div class="flex justify-between items-center pt-3">
+                        <div>
+                            <span class="font-semibold text-sm block">Komut Blokları</span>
+                            <span class="text-xs text-[#8b949e]">Command Block çalışmasına izin ver.</span>
+                        </div>
+                        <input type="checkbox" checked class="w-5 h-5 accent-[#2ecc71] cursor-pointer">
+                    </div>
+
+                    <div class="flex justify-between items-center pt-3">
+                        <div>
+                            <span class="font-semibold text-sm block">Hayvan Doğması</span>
+                            <span class="text-xs text-[#8b949e]">İnek, koyun gibi dost canıların doğuşu.</span>
+                        </div>
+                        <input type="checkbox" checked class="w-5 h-5 accent-[#2ecc71] cursor-pointer">
+                    </div>
+
+                    <div class="flex justify-between items-center pt-3">
+                        <div>
+                            <span class="font-semibold text-sm block">Canavar Doğması</span>
+                            <span class="text-xs text-[#8b949e]">Zombi, creeper gibi yaratıkların doğuşu.</span>
+                        </div>
+                        <input type="checkbox" checked class="w-5 h-5 accent-[#2ecc71] cursor-pointer">
+                    </div>
+                </div>
+
+                <button onclick="showToast('Tüm MC Frend ayarları başarıyla kaydedildi!')" class="mt-6 w-full bg-[#2ecc71] hover:bg-[#27ae60] text-black font-bold py-3 rounded-lg transition">
+                    Tüm Ayarları Kaydet
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // App State
+        let currentVersion = "1.21.4";
+        let currentSoftware = "Paper";
+        let isRunning = false;
+        let installedMods = [];
+        let searchDebounceTimer = null;
+
+        // Navigation Switcher
+        function showTab(tabId, btnElement) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(tabId).classList.remove('hidden');
+            if(btnElement) btnElement.classList.add('active');
+
+            if(tabId === 'mods') {
+                searchModrinth();
+            }
+        }
+
+        // IP Address Manager
+        function updateIp() {
+            const val = document.getElementById('subdomain').value || 'mcfrend';
+            document.getElementById('fullIp').innerText = `oyna.${val}.com`;
+        }
+
+        function copyIp() {
+            const ip = document.getElementById('fullIp').innerText;
+            navigator.clipboard.writeText(ip);
+            showToast(`IP Adresi Kopyalandı: ${ip}`);
+        }
+
+        // Software Selector
+        function selectSW(name, type, cardElement) {
+            document.querySelectorAll('.software-card').forEach(c => c.classList.remove('selected'));
+            cardElement.classList.add('selected');
+            
+            currentSoftware = name;
+            document.getElementById('selectedSwDisplay').innerText = name;
+            document.getElementById('sidebarSoftware').innerText = name;
+            
+            showToast(`${name} yazılımı aktif edildi.`);
+            searchModrinth();
+        }
+
+        // Version Selector Handler
+        function onVersionChange(ver) {
+            currentVersion = ver;
+            document.getElementById('sidebarVersion').innerText = ver;
+            document.getElementById('activeVersionFilterBadge').innerText = `Sürüm: ${ver}`;
+            showToast(`Sunucu sürümü ${ver} yapıldı.`);
+            searchModrinth();
+        }
+
+        // Debounce helper for API calls
+        function debounceSearch() {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => {
+                searchModrinth();
+            }, 400);
+        }
+
+        // REAL LIVE MODRINTH API INTEGRATION
+        async function searchModrinth() {
+            const query = document.getElementById('modSearchInput')?.value || '';
+            const projectType = document.getElementById('modProjectType')?.value || 'mod';
+            const container = document.getElementById('modrinthResults');
+
+            if(!container) return;
+
+            container.innerHTML = `
+                <div class="text-center py-12 text-[#8b949e]">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[#2ecc71] border-t-transparent mb-2"></div>
+                    <p class="text-sm">Modrinth canlı sunucularından modlar çekiliyor (${currentVersion} - ${projectType})...</p>
+                </div>
+            `;
+
+            try {
+                // Build Modrinth API Search Facets Filter
+                let facets = [
+                    [`project_type:${projectType}`]
+                ];
+
+                // Append version filter if selected
+                if(currentVersion) {
+                    facets.push([`versions:${currentVersion}`]);
+                }
+
+                const url = `https://api.modrinth.com/v2/search?query=${encodeURIComponent(query)}&facets=${encodeURIComponent(JSON.stringify(facets))}&limit=20`;
+
+                const res = await fetch(url);
+                if(!res.ok) throw new Error("Modrinth API yanıt vermedi.");
+
+                const data = await res.json();
+
+                if(!data.hits || data.hits.length === 0) {
+                    container.innerHTML = `
+                        <div class="bg-[#0d1117] border border-[#30363d] p-8 rounded-xl text-center">
+                            <p class="text-lg text-yellow-400 mb-1">⚠️ Sonuç Bulunamadı</p>
+                            <p class="text-xs text-[#8b949e]">"${query}" araması veya ${currentVersion} sürümü için uyumlu sonuç bulunamadı.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Render Live API Results
+                container.innerHTML = "";
+                data.hits.forEach(item => {
+                    const iconUrl = item.icon_url || 'https://placehold.co/64x64/21262d/2ecc71?text=MOD';
+                    const title = item.title;
+                    const desc = item.description || 'Açıklama bulunmuyor.';
+                    const author = item.author;
+                    const downloads = Number(item.downloads).toLocaleString();
+                    const isInstalled = installedMods.some(m => m.id === item.project_id);
+
+                    const card = document.createElement('div');
+                    card.className = "bg-[#0d1117] border border-[#30363d] p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-[#2ecc71]/50 transition";
+                    card.innerHTML = `
+                        <div class="flex items-center gap-4 flex-1">
+                            <img src="${iconUrl}" onerror="this.src='https://placehold.co/64x64/21262d/2ecc71?text=MOD'" class="w-14 h-14 rounded-lg object-cover bg-[#21262d] shrink-0">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h4 class="font-bold text-white text-base">${title}</h4>
+                                    <span class="text-[10px] font-mono bg-[#21262d] text-[#2ecc71] px-2 py-0.5 rounded border border-[#30363d]">by ${author}</span>
+                                    <span class="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20">📥 ${downloads} İndirme</span>
+                                </div>
+                                <p class="text-xs text-[#8b949e] line-clamp-2">${desc}</p>
+                            </div>
+                        </div>
+                        <button onclick="installMod('${item.project_id}', '${title.replace(/'/g, "\\'")}', this)" 
+                                class="${isInstalled ? 'bg-gray-700 text-gray-300' : 'bg-[#2ecc71] hover:bg-[#27ae60] text-black'} font-bold text-xs px-5 py-2.5 rounded-lg transition shrink-0">
+                            ${isInstalled ? '✓ Yüklendi' : 'Tek Tıkla Kur'}
+                        </button>
+                    `;
+                    container.appendChild(card);
+                });
+
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `
+                    <div class="bg-red-500/10 border border-red-500/20 p-6 rounded-xl text-center text-red-400">
+                        <p class="font-bold mb-1">Modrinth API Hatası</p>
+                        <p class="text-xs">Modlar çekilirken bir hata oluştu. Lütfen internet bağlantınızı kontrol edin.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Install Mod Handler
+        function installMod(id, title, btn) {
+            if(installedMods.some(m => m.id === id)) {
+                showToast(`${title} zaten yüklü!`);
+                return;
+            }
+
+            installedMods.push({ id, title });
+            btn.className = "bg-gray-700 text-gray-300 font-bold text-xs px-5 py-2.5 rounded-lg transition shrink-0";
+            btn.innerText = "✓ Yüklendi";
+
+            // Add to Files list dynamically
+            const filesList = document.getElementById('installedFilesList');
+            if(filesList) {
+                const fileRow = document.createElement('div');
+                fileRow.className = "bg-[#0d1117] border border-[#30363d] p-3 rounded-lg flex justify-between items-center my-1";
+                fileRow.innerHTML = `
+                    <span class="flex items-center gap-2">📦 <b>${title}.jar</b></span>
+                    <span class="text-xs text-[#2ecc71]">Kuruldu</span>
+                `;
+                filesList.appendChild(fileRow);
+            }
+
+            showToast(`${title} başarıyla sunucunuza yüklendi!`);
+        }
+
+        // Server Start/Stop Controls
+        function toggleServer() {
+            const btn = document.getElementById('startBtn');
+            const statusText = document.getElementById('statusText');
+            const statusBadge = document.getElementById('statusBadge');
+            const sidebarStatus = document.getElementById('sidebarStatus');
+
+            if(!isRunning) {
+                statusText.innerText = "Sunucu Başlatılıyor...";
+                statusBadge.className = "inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20";
+                
+                setTimeout(() => {
+                    statusText.innerText = "ONLINE";
+                    statusBadge.className = "inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold bg-green-500/10 text-green-400 border border-green-500/20";
+                    sidebarStatus.innerText = "Online";
+                    sidebarStatus.className = "font-bold text-[#2ecc71]";
+
+                    btn.innerText = "🛑 DURDUR";
+                    btn.className = "bg-red-500 hover:bg-red-600 text-white font-black text-xl px-12 py-4 rounded-xl shadow-lg transition transform active:scale-95 flex items-center gap-3";
+                    
+                    isRunning = true;
+                    showToast("Sunucu başarıyla açıldı!");
+                }, 1500);
+            } else {
+                statusText.innerText = "Sunucu Kapalı";
+                statusBadge.className = "inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold bg-red-500/10 text-red-400 border border-red-500/20";
+                sidebarStatus.innerText = "Kapalı";
+                sidebarStatus.className = "font-bold text-red-400";
+
+                btn.innerText = "▶ BAŞLAT";
+                btn.className = "bg-[#2ecc71] hover:bg-[#27ae60] text-black font-black text-xl px-12 py-4 rounded-xl shadow-lg transition transform active:scale-95 flex items-center gap-3";
+                
+                isRunning = false;
+                showToast("Sunucu durduruldu.");
+            }
+        }
+
+        // Toast Popup Helper
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            toastMsg.innerText = msg;
+            toast.classList.remove('hidden');
+
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Initial Search On Load
+        window.onload = function() {
+            searchModrinth();
+        };
+    </script>
+</body>
+</html>
